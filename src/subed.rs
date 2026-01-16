@@ -6,26 +6,26 @@ use super::{Inner, Topic};
 
 /// A yielded item from a _subscription_.
 pub enum Item<I> {
-    /// The item has been subscribed to and belongs to this [`Sub`].
+    /// The item has been subscribed to.
     Subscribed(I),
 
     /// The item is not handled by any subscriber.
     Unhandled(I),
 }
 
-/// A _subscription_ to a [`Topic`] yielding only this topic's message (or unhandled ones).
-pub struct Sub<S: TryStream, T: Topic> {
+/// A _subscription_ to a [`Topic`] yielding this topic's message.
+pub struct Subed<S: TryStream, T: Topic> {
     inner: Arc<Inner<S, T>>,
     topic: T,
 }
 
-impl<S: TryStream, T: Topic> Sub<S, T> {
+impl<S: TryStream, T: Topic> Subed<S, T> {
     pub(super) fn new(inner: Arc<Inner<S, T>>, topic: T) -> Self {
         Self { inner, topic }
     }
 }
 
-impl<S: TryStream, T: Topic> Drop for Sub<S, T> {
+impl<S: TryStream, T: Topic> Drop for Subed<S, T> {
     fn drop(&mut self) {
         tracing::trace!("unsubscribing {:?}", self.topic);
 
@@ -34,7 +34,7 @@ impl<S: TryStream, T: Topic> Drop for Sub<S, T> {
 }
 
 impl<S: TryStream + Stream<Item = Result<S::Ok, S::Error>> + Unpin, T: Topic<Item = S::Ok>> Stream
-    for Sub<S, T>
+    for Subed<S, T>
 {
     type Item = Result<Item<S::Ok>, S::Error>;
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use futures::{StreamExt, TryStream};
 
-use super::{Inner, Sub, Topic};
+use super::{Inner, Subed, Topic};
 
 /// A _stream_ that can be [`Subable::subscribe`]d to.
 pub struct Subable<S: TryStream, T: Topic> {
@@ -22,7 +22,7 @@ impl<S: TryStream, T: Topic> Subable<S, T> {
     }
 
     /// Subscribe to the provided [`Topic`].
-    pub fn subscribe(&self, topic: T) -> Sub<S, T> {
+    pub fn subscribe(&self, topic: T) -> Subed<S, T> {
         if self
             .inner
             .wakers
@@ -36,10 +36,10 @@ impl<S: TryStream, T: Topic> Subable<S, T> {
 
         tracing::trace!("subscribing {topic:?}");
 
-        Sub::new(self.inner.clone(), topic)
+        Subed::new(self.inner.clone(), topic)
     }
 
-    /// Unsubscribe all currently subscribed [`Sub`]s
+    /// Unsubscribe all currently subscribed [`Subed`]
     /// triggering individual streams to return [`None`].
     pub fn unsubscribe_all(&self) {
         for (_, waker) in self.inner.wakers.write().unwrap().drain() {
