@@ -31,4 +31,10 @@ pub trait Topic: Debug + Clone + Hash + Eq {
 
     /// Identify the topic from the item type.
     fn topic(item: &Self::Item) -> Self;
+
+    /// Fallback for when the item is _unhandled_, you might want to change it's [`Topic`] based on
+    /// this knowledge.
+    fn fallback(self) -> Self {
+        self
+    }
 }

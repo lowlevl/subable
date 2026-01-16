@@ -55,8 +55,12 @@ impl<S: TryStream + Stream<Item = Result<S::Ok, S::Error>> + Unpin, T: Topic<Ite
 
         match futures::ready!(stream.as_mut().poll_peek(cx)) {
             Some(Ok(item)) => {
-                let topic = T::topic(item);
+                let mut topic = T::topic(item);
                 let wakers = self.inner.wakers.read().unwrap();
+
+                if !wakers.contains_key(&topic) {
+                    topic = topic.fallback();
+                }
 
                 if let Some(waker) = wakers.get(&topic)
                     && topic != self.topic
