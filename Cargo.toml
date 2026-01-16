@@ -1,6 +1,6 @@
 [package]
 name = "subable"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2024"
 keywords = ["futures", "stream", "async"]
 description = "A low-level asynchronous crate to subscribe on a futures::TryStream."
