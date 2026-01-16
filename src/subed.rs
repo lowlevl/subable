@@ -13,7 +13,7 @@ pub enum Item<I> {
     Unhandled(I),
 }
 
-/// A _subscription_ to a [`Topic`] yielding this topic's message.
+/// A _subscription_ to a [`Topic`] yielding this topic's items.
 pub struct Subed<S: TryStream, T: Topic> {
     inner: Arc<Inner<S, T>>,
     topic: T,
@@ -70,10 +70,10 @@ impl<S: TryStream + Stream<Item = Result<S::Ok, S::Error>> + Unpin, T: Topic<Ite
                     waker.wake();
                     task::Poll::Pending
                 } else if topic == self.topic {
-                    // The item is for us, pop it as `Match`
+                    // The item is subscribed, pop it as `Subscribed`
                     stream.as_mut().poll_next(cx).map_ok(Item::Subscribed)
                 } else {
-                    // The item is unhandled, pop it as `Default`
+                    // The item is unhandled, pop it as `Unhandled`
                     stream.as_mut().poll_next(cx).map_ok(Item::Unhandled)
                 }
             }
