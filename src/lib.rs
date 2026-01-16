@@ -1,3 +1,9 @@
+#![doc = include_str!("../README.md")]
+//!
+
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![warn(missing_docs, clippy::unimplemented)]
+
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -5,64 +11,24 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use futures::{StreamExt, TryStream, lock::Mutex, stream::Peekable, task::AtomicWaker};
+use futures::{TryStream, lock::Mutex, stream::Peekable, task::AtomicWaker};
 
 mod sub;
-pub use sub::{Sub, Subed};
+pub use sub::{Item, Sub};
 
-pub trait Topic: Debug + Clone + Hash + Eq {
-    type From;
-
-    fn topic(input: &Self::From) -> Self;
-}
+mod subable;
+pub use subable::Subable;
 
 struct Inner<S: TryStream, T: Topic> {
     wakers: RwLock<HashMap<T, Arc<AtomicWaker>>>,
     stream: Mutex<Peekable<S>>,
 }
 
-pub struct Subscriber<S: TryStream, T: Topic> {
-    inner: Arc<Inner<S, T>>,
-}
+/// The _topic_ that will be used to route items to a specific [`Sub`].
+pub trait Topic: Debug + Clone + Hash + Eq {
+    /// The type of the items in the [`Subable`] stream.
+    type Item;
 
-impl<S: TryStream, T: Topic> Subscriber<S, T> {
-    pub fn new(stream: S) -> Self {
-        Self {
-            inner: Inner {
-                wakers: Default::default(),
-                stream: stream.peekable().into(),
-            }
-            .into(),
-        }
-    }
-
-    pub fn subscribe(&self, topic: T) -> Sub<S, T> {
-        if self
-            .inner
-            .wakers
-            .write()
-            .unwrap()
-            .insert(topic.clone(), Default::default())
-            .is_some()
-        {
-            panic!("category already subscribed, bailing");
-        }
-
-        tracing::trace!("subscribing {topic:?}");
-
-        Sub::new(self.inner.clone(), topic)
-    }
-
-    pub fn unsubscribe_all(&self) {
-        for (_, waker) in self.inner.wakers.write().unwrap().drain() {
-            // Wake all tasks, that will subsequently return `None`
-            waker.wake();
-        }
-    }
-}
-
-impl<S: TryStream, T: Topic> Drop for Subscriber<S, T> {
-    fn drop(&mut self) {
-        self.unsubscribe_all();
-    }
+    /// Identify the topic from the item type.
+    fn topic(item: &Self::Item) -> Self;
 }

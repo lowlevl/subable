@@ -4,11 +4,16 @@ use futures::{FutureExt, Stream, TryStream, task};
 
 use super::{Inner, Topic};
 
-pub enum Subed<I> {
-    Yes(I),
-    No(I),
+/// A yielded item from a _subscription_.
+pub enum Item<I> {
+    /// The item has been subscribed to and belongs to this [`Sub`].
+    Subscribed(I),
+
+    /// The item is not handled by any subscriber.
+    Unhandled(I),
 }
 
+/// A _subscription_ to a [`Topic`] yielding only this topic's message (or unhandled ones).
 pub struct Sub<S: TryStream, T: Topic> {
     inner: Arc<Inner<S, T>>,
     topic: T,
@@ -28,10 +33,10 @@ impl<S: TryStream, T: Topic> Drop for Sub<S, T> {
     }
 }
 
-impl<S: TryStream + Stream<Item = Result<S::Ok, S::Error>> + Unpin, T: Topic<From = S::Ok>> Stream
+impl<S: TryStream + Stream<Item = Result<S::Ok, S::Error>> + Unpin, T: Topic<Item = S::Ok>> Stream
     for Sub<S, T>
 {
-    type Item = Result<Subed<S::Ok>, S::Error>;
+    type Item = Result<Item<S::Ok>, S::Error>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -62,15 +67,15 @@ impl<S: TryStream + Stream<Item = Result<S::Ok, S::Error>> + Unpin, T: Topic<Fro
                     task::Poll::Pending
                 } else if topic == self.topic {
                     // The item is for us, pop it as `Match`
-                    stream.as_mut().poll_next(cx).map_ok(Subed::Yes)
+                    stream.as_mut().poll_next(cx).map_ok(Item::Subscribed)
                 } else {
                     // The item is unhandled, pop it as `Default`
-                    stream.as_mut().poll_next(cx).map_ok(Subed::No)
+                    stream.as_mut().poll_next(cx).map_ok(Item::Unhandled)
                 }
             }
 
             // The stream errored, pop it from the stream
-            Some(_) => stream.as_mut().poll_next(cx).map_ok(Subed::No),
+            Some(_) => stream.as_mut().poll_next(cx).map_ok(Item::Unhandled),
 
             // The stream ended, return `None`
             None => task::Poll::Ready(None),
